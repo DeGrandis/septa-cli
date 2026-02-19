@@ -1,0 +1,184 @@
+#!/usr/bin/env node
+
+/**
+ * SEPTA Regional Rail CLI Tool
+ * Pure JavaScript - ZERO dependencies (only needs built-in `fetch`)
+ * 
+ * Station names MUST be exact (including spaces and capitalization).
+ * Full list: https://www3.septa.org/VIRegionalRail.html
+ *
+ * Common examples:
+ *   "Suburban Station", "30th Street Station", "Jefferson Station",
+ *   "Airport Terminal A", "Norristown TC", "Temple U", "Doylestown", "Wilmington", etc.
+ */
+
+const BASE_URL = "https://www3.septa.org/api";
+
+/**
+ * Get next departures FROM a station (all directions, with destinations, times, track, status)
+ * @param {string} station - exact station name, e.g. "Suburban Station"
+ * @param {number} results - how many trains to return (default 10)
+ * @returns {Promise<Object>} structured departures by direction
+ */
+async function getNextDepartures(station, results = 10) {
+  const url = `${BASE_URL}/Arrivals/index.php?station=${encodeURIComponent(station)}&results=${results}`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`SEPTA API error: ${response.status} ${response.statusText}`);
+  }
+
+  const raw = await response.json();
+
+  // The response has one dynamic key like "Suburban Station Departures: February 12, 2026, 11:02 pm"
+  const titleKey = Object.keys(raw)[0];
+  const data = raw[titleKey][0] || { Northbound: [], Southbound: [] };
+
+  return {
+    station,
+    timestamp: titleKey,
+    northbound: data.Northbound || [],
+    southbound: data.Southbound || []
+  };
+}
+
+/**
+ * Get the next trains that go FROM station X TO station Y
+ * Returns scheduled departure from X and arrival at Y (only direct trains)
+ * @param {string} fromStation - exact origin station name
+ * @param {string} toStation - exact destination station name
+ * @param {number} numResults - how many trains to return (default 5)
+ * @returns {Promise<Object>} array of trains with departure/arrival times
+ */
+async function getNextToArrive(fromStation, toStation, numResults = 5) {
+  const url = `${BASE_URL}/NextToArrive/index.php?req1=${encodeURIComponent(fromStation)}&req2=${encodeURIComponent(toStation)}&req3=${numResults}`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`SEPTA API error: ${response.status} ${response.statusText}`);
+  }
+
+  const trains = await response.json();
+
+  return {
+    from: fromStation,
+    to: toStation,
+    trains: trains
+  };
+}
+
+/**
+ * Get live train status and schedule for all Regional Rail lines
+ * Includes train numbers, origins, destinations, next stops, consists, and delays
+ * @returns {Promise<Array>} array of all active trains with live status
+ */
+async function getTrainView() {
+  const url = `${BASE_URL}/TrainView/index.php`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`SEPTA API error: ${response.status} ${response.statusText}`);
+  }
+
+  const trains = await response.json();
+
+  return trains;
+}
+
+/**
+ * Get detailed schedule for a specific train by train number
+ * @param {string|number} trainNumber - train number (e.g. "2335")
+ * @returns {Promise<Array>} detailed schedule with all stops, times, and status
+ */
+async function getTrainSchedule(trainNumber) {
+  const url = `${BASE_URL}/RRSchedules/index.php?req1=${encodeURIComponent(trainNumber)}`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`SEPTA API error: ${response.status} ${response.statusText}`);
+  }
+
+  const schedule = await response.json();
+
+  return {
+    train_number: trainNumber,
+    schedule: schedule
+  };
+}
+
+// --- CLI Logic ---
+
+async function main() {
+  const args = process.argv.slice(2); // Remove 'node' and script path
+
+  if (args.length === 0) {
+    console.error("SEPTA Regional Rail CLI\n");
+    console.error("Usage:");
+    console.error("  septacli departures <station> [results]");
+    console.error("  septacli to <fromStation> <toStation> [results]");
+    console.error("  septacli trains");
+    console.error("  septacli train <trainNumber>");
+    console.error("\nExamples:");
+    console.error('  septacli departures "Suburban Station" 5');
+    console.error('  septacli to "30th Street Station" "Airport Terminal A"');
+    console.error('  septacli trains');
+    console.error('  septacli train 2335');
+    process.exit(1);
+  }
+
+  const command = args[0];
+  let results = 10;
+
+  try {
+    if (command === "departures") {
+      if (args.length < 2) {
+        throw new Error("Missing station name. Usage: septacli departures <station> [results]");
+      }
+      const station = args[1];
+      if (args.length > 2) {
+        results = parseInt(args[2], 10);
+        if (isNaN(results)) {
+          throw new Error("Invalid number for results.");
+        }
+      }
+      const data = await getNextDepartures(station, results);
+      console.log(JSON.stringify(data, null, 2));
+
+    } else if (command === "to") {
+      if (args.length < 3) {
+        throw new Error("Missing stations. Usage: septacli to <fromStation> <toStation> [results]");
+      }
+      const fromStation = args[1];
+      const toStation = args[2];
+      if (args.length > 3) {
+        results = parseInt(args[3], 10);
+        if (isNaN(results)) {
+          throw new Error("Invalid number for results.");
+        }
+      }
+      const data = await getNextToArrive(fromStation, toStation, results);
+      console.log(JSON.stringify(data, null, 2));
+
+    } else if (command === "trains") {
+      const data = await getTrainView();
+      console.log(JSON.stringify(data, null, 2));
+
+    } else if (command === "train") {
+      if (args.length < 2) {
+        throw new Error("Missing train number. Usage: septacli train <trainNumber>");
+      }
+      const trainNumber = args[1];
+      const data = await getTrainSchedule(trainNumber);
+      console.log(JSON.stringify(data, null, 2));
+
+    } else {
+      throw new Error(`Unknown command: ${command}. Use 'departures', 'to', 'trains', or 'train'`);
+    }
+  } catch (error) {
+    console.error("Error:", error.message);
+    process.exit(1);
+  }
+}
+
+// Execute main
+main();
