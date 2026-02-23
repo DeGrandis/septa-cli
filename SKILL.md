@@ -92,25 +92,27 @@ Get real-time SEPTA Regional Rail train information including departures from an
 
 **Execution:** This skill uses the `septacli` executable.
 
+**Output Format:** Returns markdown tables by default for LLM-friendly parsing. Add `--json` flag for structured JSON output.
+
 There are four main commands:
 
 ### 1. Get all departures from a station
-**Command:** `~/.openclaw/skills/septa_cli/septacli departures "<station>" [results]`
+**Command:** `~/.openclaw/skills/septa_cli/septacli departures "<station>" [results] [--json]`
 - Returns northbound and southbound trains leaving that station
-- Includes destination, departure time, track, and status
+- Includes origin, destination, departure time, track, platform, service type, and status
 
 ### 2. Get direct trains from one station to another
-**Command:** `~/.openclaw/skills/septa_cli/septacli to "<fromStation>" "<toStation>" [results]`
+**Command:** `~/.openclaw/skills/septa_cli/septacli to "<fromStation>" "<toStation>" [results] [--json]`
 - Returns only trains that go directly from station A to station B
-- Includes departure time from origin and arrival time at destination
+- Includes departure time from origin, arrival time at destination, and direct/transfer indicator
 
 ### 3. Get live status of all active trains
-**Command:** `~/.openclaw/skills/septa_cli/septacli trains`
+**Command:** `~/.openclaw/skills/septa_cli/septacli trains [--json]`
 - Returns all currently running Regional Rail trains
-- Includes train numbers, origins, destinations, current locations, delays, and consists
+- Includes train numbers, origins, destinations, current locations, GPS coordinates, heading, delays, consists, and tracks
 
 ### 4. Get detailed schedule for a specific train
-**Command:** `~/.openclaw/skills/septa_cli/septacli train "<trainNumber>"`
+**Command:** `~/.openclaw/skills/septa_cli/septacli train "<trainNumber>" [--json]`
 - Returns complete schedule with all stops for a specific train
 - Includes scheduled, estimated, and actual times for each stop
 
@@ -139,30 +141,52 @@ Full list available at: https://www3.septa.org/VIRegionalRail.html
 ### Example 1: Get departures from Suburban Station
 **User:** "When is the next train from Suburban Station?"
 **Command:** `~/.openclaw/skills/septa_cli/septacli departures "Suburban Station" 5`
-**Output:** JSON with northbound and southbound trains, including:
-- Destination (e.g., "Thorndale", "Warminster")
-- Departure time
-- Track number
-- Status (On time, Delayed, etc.)
+**Output:** Markdown table with northbound and southbound trains:
+```markdown
+# Departures from Suburban Station
+*Suburban Station Departures: February 23, 2026, 10:47 am*
+
+## Northbound
+| Train | Origin | Destination | Line | Path | Depart | Track | Platform | Service | Status |
+|-------|--------|-------------|------|------|--------|-------|----------|---------|--------|
+| 4224 | Airport Terminal E-F | Norristown | Airport | R4/2N | 2026-02-23 11:05:00.000 | 1 | A | LOCAL | 9 min |
+```
 
 ### Example 2: Get trains from 30th Street to Airport
 **User:** "When does the next train to the airport leave from 30th Street?"
 **Command:** `~/.openclaw/skills/septa_cli/septacli to "30th Street Station" "Airport Terminal A" 3`
-**Output:** JSON array of direct trains with:
-- Line name
-- Departure time from 30th Street
-- Arrival time at Airport Terminal A
-- Train number
+**Output:** Markdown table with direct trains:
+```markdown
+# Trains from 30th Street Station to Airport Terminal A
+
+| Train | Line | Depart | Arrive | Direct | Status |
+|-------|------|--------|---------|--------|--------|
+| 5432 | Airport | 3:55 PM | 4:12 PM | Yes | On time |
+```
 
 ### Example 3: See all active trains
 **User:** "What trains are running right now?"
 **Command:** `~/.openclaw/skills/septa_cli/septacli trains`
-**Output:** JSON array of all active trains with train numbers, origins, destinations, next stops, and delays
+**Output:** Markdown table with all active trains:
+```markdown
+# Active Regional Rail Trains
+| Train | Line | Origin | Destination | Current | Next Stop | Service | Track | GPS | Heading | Consist | Status |
+|-------|------|--------|-------------|---------|-----------|---------|-------|-----|---------|---------|--------|
+| 1711 | Trenton | Market East | Trenton | Jefferson Station | Market East | LOCAL | 3 | 39.9538889,-75.1677778 | 120.1° | - | 20 min late |
+```
 
 ### Example 4: Get schedule for specific train
 **User:** "Show me all the stops for train 2335"
 **Command:** `~/.openclaw/skills/septa_cli/septacli train "2335"`
-**Output:** JSON with complete schedule including scheduled, estimated, and actual times for each stop
+**Output:** Markdown table with complete schedule:
+```markdown
+# Schedule for Train 2335
+
+| Station | Scheduled | Estimated | Actual |
+|---------|-----------|-----------|--------|
+| Suburban Station | 10:59 pm | 10:56 pm | 10:56 pm |
+| Gray 30th Street | 11:03 pm | 11:02 pm | 11:02 pm |
+```
 
 ## Combining Commands (Advanced Workflow)
 
@@ -194,7 +218,11 @@ An LLM can chain commands together for comprehensive answers:
 
 ## Output Format
 
-### Departures command returns:
+**Default:** Markdown tables (shown in examples above)
+
+**JSON Mode:** Add `--json` flag to any command for structured JSON output
+
+### Departures command returns (JSON):
 ```json
 {
   "station": "Suburban Station",

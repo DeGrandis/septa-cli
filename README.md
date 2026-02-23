@@ -14,7 +14,7 @@ This CLI provides access to SEPTA Regional Rail data including:
 - 🗺️ **Live Tracking**: View all currently running trains with real-time locations and delays
 - 📋 **Train Schedules**: Get complete stop-by-stop schedules for any train number
 
-All data comes from the official SEPTA API and outputs clean JSON for easy integration with automation tools and LLMs.
+All data comes from the official SEPTA API and outputs clean markdown tables by default for LLM-friendly parsing. Use `--json` flag for structured JSON output when needed for automation.
 
 ## 🛠️ Installation
 
@@ -44,7 +44,21 @@ Get all trains departing from a station (northbound and southbound).
 ./septacli departures "Suburban Station" 5
 ```
 
-**Output:**
+**Markdown Output (default):**
+```markdown
+# Departures from Suburban Station
+*Suburban Station Departures: February 23, 2026, 10:47 am*
+
+## Northbound
+| Train | Origin | Destination | Line | Path | Depart | Track | Platform | Service | Status |
+|-------|--------|-------------|------|------|--------|-------|----------|---------|--------|
+| 4224 | Airport Terminal E-F | Norristown | Airport | R4/2N | 2026-02-23 11:05:00.000 | 1 | A | LOCAL | 9 min |
+```
+
+**JSON Output (use --json flag):**
+```bash
+./septacli departures "Suburban Station" 5 --json
+```
 ```json
 {
   "station": "Suburban Station",
@@ -53,25 +67,20 @@ Get all trains departing from a station (northbound and southbound).
     {
       "direction": "N",
       "train_id": "435",
+      "origin": "Airport Terminal E-F",
       "destination": "Thorndale",
       "line": "Paoli/Thorndale",
+      "path": "R4/2N",
       "depart_time": "3:51 PM",
       "track": "4",
+      "platform": "A",
+      "service_type": "LOCAL",
       "status": "On Time"
     }
   ],
   "southbound": [...]
 }
 ```
-
-**Key Fields:**
-- `direction`: N (Northbound) or S (Southbound)
-- `train_id`: Train number
-- `destination`: Final destination of the train
-- `line`: Rail line name
-- `depart_time`: Scheduled departure time
-- `track`: Platform/track number
-- `status`: "On Time", "Delayed X min", etc.
 
 ---
 
@@ -89,7 +98,16 @@ Find trains that go directly from one station to another (no transfers).
 ./septacli to "30th Street Station" "Airport Terminal A" 3
 ```
 
-**Output:**
+**Markdown Output (default):**
+```markdown
+# Trains from Paoli to Suburban Station
+
+| Train | Line | Depart | Arrive | Direct | Status |
+|-------|------|--------|---------|--------|--------|
+| 5838 | Paoli/Thorndale | 11:41AM | 12:30PM | Yes | On time |
+```
+
+**JSON Output (use --json flag):**
 ```json
 {
   "from": "30th Street Station",
@@ -100,18 +118,12 @@ Find trains that go directly from one station to another (no transfers).
       "orig_line": "Airport",
       "orig_departure_time": "3:55 PM",
       "orig_arrival_time": "4:12 PM",
-      "orig_delay": "On time"
+      "orig_delay": "On time",
+      "isdirect": "true"
     }
   ]
 }
 ```
-
-**Key Fields:**
-- `orig_train`: Train number (use this with the `train` command for full schedule)
-- `orig_line`: Rail line name
-- `orig_departure_time`: Departure from origin station
-- `orig_arrival_time`: Arrival at destination station
-- `orig_delay`: Delay status
 
 ---
 
@@ -124,7 +136,15 @@ See all currently active Regional Rail trains with real-time positions and statu
 ./septacli trains
 ```
 
-**Output:**
+**Markdown Output (default):**
+```markdown
+# Active Regional Rail Trains
+| Train | Line | Origin | Destination | Current | Next Stop | Service | Track | GPS | Heading | Consist | Status |
+|-------|------|--------|-------------|---------|-----------|---------|-------|-----|---------|---------|--------|
+| 1711 | Trenton | Market East | Trenton | Jefferson Station | Market East | LOCAL | 3 | 39.9538889,-75.1677778 | 120.1° | - | 20 min late |
+```
+
+**JSON Output (use --json flag):**
 ```json
 [
   {
@@ -139,22 +159,12 @@ See all currently active Regional Rail trains with real-time positions and statu
     "consist": "4",
     "heading": "S",
     "late": 2,
-    "SOURCE": "02/18/2026 10:56:00 PM",
+    "SOURCE": "Market East",
     "TRACK": "4",
     "TRACK_CHANGE": ""
   }
 ]
 ```
-
-**Key Fields:**
-- `trainno`: Train number
-- `dest`: Final destination
-- `currentstop`: Current station
-- `nextstop`: Next scheduled stop
-- `line`: Rail line name
-- `late`: Minutes delayed (0 = on time)
-- `consist`: Number of cars
-- `lat`/`lon`: GPS coordinates
 
 ---
 
@@ -167,7 +177,18 @@ Get the complete stop-by-stop schedule for a specific train.
 ./septacli train "2335"
 ```
 
-**Output:**
+**Markdown Output (default):**
+```markdown
+# Schedule for Train 5838
+
+| Station | Scheduled | Estimated | Actual |
+|---------|-----------|-----------|--------|
+| Malvern | 11:38 am | 11:38 am | na |
+| Paoli | 11:41 am | 11:41 am | na |
+| Suburban Station | 12:30 pm | 12:30 pm | na |
+```
+
+**JSON Output (use --json flag):**
 ```json
 {
   "train_number": "2335",
@@ -177,27 +198,10 @@ Get the complete stop-by-stop schedule for a specific train.
       "sched_tm": "10:59 pm",
       "est_tm": "10:56 pm",
       "act_tm": "10:56 pm"
-    },
-    {
-      "station": "Gray 30th Street",
-      "sched_tm": "11:03 pm",
-      "est_tm": "11:02 pm",
-      "act_tm": "11:02 pm"
-    },
-    {
-      "station": "Penn Medicine Station",
-      "sched_tm": "11:06 pm",
-      "est_tm": "11:05 pm",
-      "act_tm": "11:05 pm"
     }
   ]
 }
 ```
-
-**Key Fields:**
-- `sched_tm`: Originally scheduled time
-- `est_tm`: Estimated time (updated for delays)
-- `act_tm`: Actual arrival/departure time (or "na" if not yet reached)
 
 ---
 

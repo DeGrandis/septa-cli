@@ -10,6 +10,8 @@
  * Common examples:
  *   "Suburban Station", "30th Street Station", "Jefferson Station",
  *   "Airport Terminal A", "Norristown TC", "Temple U", "Doylestown", "Wilmington", etc.
+ * 
+ * Output: Markdown by default, use --json for JSON output
  */
 
 const BASE_URL = "https://www3.septa.org/api";
@@ -106,10 +108,95 @@ async function getTrainSchedule(trainNumber) {
   };
 }
 
+// --- Markdown Formatters ---
+
+function formatDeparturesMarkdown(data) {
+  let md = `# Departures from ${data.station}\n`;
+  md += `*${data.timestamp}*\n\n`;
+
+  if (data.northbound.length > 0) {
+    md += `## Northbound\n`;
+    md += `| Train | Origin | Destination | Line | Path | Depart | Track | Platform | Service | Status |\n`;
+    md += `|-------|--------|-------------|------|------|--------|-------|----------|---------|--------|\n`;
+    for (const t of data.northbound) {
+      md += `| ${t.train_id || '-'} | ${t.origin || '-'} | ${t.destination || '-'} | ${t.line || '-'} | ${t.path || '-'} | ${t.depart_time || '-'} | ${t.track || '-'} | ${t.platform || '-'} | ${t.service_type || '-'} | ${t.status || '-'} |\n`;
+    }
+    md += `\n`;
+  }
+
+  if (data.southbound.length > 0) {
+    md += `## Southbound\n`;
+    md += `| Train | Origin | Destination | Line | Path | Depart | Track | Platform | Service | Status |\n`;
+    md += `|-------|--------|-------------|------|------|--------|-------|----------|---------|--------|\n`;
+    for (const t of data.southbound) {
+      md += `| ${t.train_id || '-'} | ${t.origin || '-'} | ${t.destination || '-'} | ${t.line || '-'} | ${t.path || '-'} | ${t.depart_time || '-'} | ${t.track || '-'} | ${t.platform || '-'} | ${t.service_type || '-'} | ${t.status || '-'} |\n`;
+    }
+    md += `\n`;
+  }
+
+  if (data.northbound.length === 0 && data.southbound.length === 0) {
+    md += `No departures found.\n`;
+  }
+
+  return md;
+}
+
+function formatToMarkdown(data) {
+  let md = `# Trains from ${data.from} to ${data.to}\n\n`;
+
+  if (data.trains && data.trains.length > 0) {
+    md += `| Train | Line | Depart | Arrive | Direct | Status |\n`;
+    md += `|-------|------|--------|---------|--------|--------|\n`;
+    for (const t of data.trains) {
+      const isDirect = t.isdirect === 'true' ? 'Yes' : 'No';
+      md += `| ${t.orig_train || '-'} | ${t.orig_line || '-'} | ${t.orig_departure_time || '-'} | ${t.orig_arrival_time || '-'} | ${isDirect} | ${t.orig_delay || '-'} |\n`;
+    }
+  } else {
+    md += `No direct trains found.\n`;
+  }
+
+  return md;
+}
+
+function formatTrainsMarkdown(trains) {
+  let md = `# Active Regional Rail Trains\n`;
+  md += `| Train | Line | Origin | Destination | Current | Next Stop | Service | Track | GPS | Heading | Consist | Status |\n`;
+  md += `|-------|------|--------|-------------|---------|-----------|---------|-------|-----|---------|---------|--------|\n`;
+
+  for (const t of trains) {
+    const late = t.late || 0;
+    const status = late > 0 ? `${late} min late` : 'On time';
+    const gps = (t.lat && t.lon) ? `${t.lat},${t.lon}` : '-';
+    const heading = t.heading ? `${parseFloat(t.heading).toFixed(1)}°` : '-';
+    md += `| ${t.trainno || '-'} | ${t.line || '-'} | ${t.SOURCE || '-'} | ${t.dest || '-'} | ${t.currentstop || '-'} | ${t.nextstop || '-'} | ${t.service || '-'} | ${t.TRACK || '-'} | ${gps} | ${heading} | ${t.consist || '-'} | ${status} |\n`;
+  }
+
+  return md;
+}
+
+function formatTrainScheduleMarkdown(data) {
+  let md = `# Schedule for Train ${data.train_number}\n\n`;
+  md += `| Station | Scheduled | Estimated | Actual |\n`;
+  md += `|---------|-----------|-----------|--------|\n`;
+
+  for (const stop of data.schedule) {
+    md += `| ${stop.station || '-'} | ${stop.sched_tm || '-'} | ${stop.est_tm || '-'} | ${stop.act_tm || '-'} |\n`;
+  }
+
+  return md;
+}
+
 // --- CLI Logic ---
 
 async function main() {
   const args = process.argv.slice(2); // Remove 'node' and script path
+
+  // Check for --json flag
+  const jsonFlagIndex = args.indexOf('--json');
+  const wantJson = jsonFlagIndex !== -1;
+  if (wantJson) {
+    args.splice(jsonFlagIndex, 1);
+  }
 
   if (args.length === 0) {
     console.error("SEPTA Regional Rail CLI\n");
@@ -118,6 +205,8 @@ async function main() {
     console.error("  septacli to <fromStation> <toStation> [results]");
     console.error("  septacli trains");
     console.error("  septacli train <trainNumber>");
+    console.error("\nOptions:");
+    console.error("  --json    Output JSON instead of markdown");
     console.error("\nExamples:");
     console.error('  septacli departures "Suburban Station" 5');
     console.error('  septacli to "30th Street Station" "Airport Terminal A"');
@@ -142,7 +231,11 @@ async function main() {
         }
       }
       const data = await getNextDepartures(station, results);
-      console.log(JSON.stringify(data, null, 2));
+      if (wantJson) {
+        console.log(JSON.stringify(data, null, 2));
+      } else {
+        console.log(formatDeparturesMarkdown(data));
+      }
 
     } else if (command === "to") {
       if (args.length < 3) {
@@ -157,11 +250,19 @@ async function main() {
         }
       }
       const data = await getNextToArrive(fromStation, toStation, results);
-      console.log(JSON.stringify(data, null, 2));
+      if (wantJson) {
+        console.log(JSON.stringify(data, null, 2));
+      } else {
+        console.log(formatToMarkdown(data));
+      }
 
     } else if (command === "trains") {
       const data = await getTrainView();
-      console.log(JSON.stringify(data, null, 2));
+      if (wantJson) {
+        console.log(JSON.stringify(data, null, 2));
+      } else {
+        console.log(formatTrainsMarkdown(data));
+      }
 
     } else if (command === "train") {
       if (args.length < 2) {
@@ -169,7 +270,11 @@ async function main() {
       }
       const trainNumber = args[1];
       const data = await getTrainSchedule(trainNumber);
-      console.log(JSON.stringify(data, null, 2));
+      if (wantJson) {
+        console.log(JSON.stringify(data, null, 2));
+      } else {
+        console.log(formatTrainScheduleMarkdown(data));
+      }
 
     } else {
       throw new Error(`Unknown command: ${command}. Use 'departures', 'to', 'trains', or 'train'`);
