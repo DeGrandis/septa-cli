@@ -6,7 +6,13 @@
 
 Command-line tool for accessing real-time SEPTA Regional Rail train schedules, departures, delays, and live train tracking in the Philadelphia area.
 
-## 🚉 Overview
+## � Quick Install
+
+```bash
+npx skills add DeGrandis/septa-cli
+```
+
+## �🚉 Overview
 
 This CLI provides access to SEPTA Regional Rail data including:
 - 🚂 **Departures**: See all trains leaving from any station with times, tracks, and destinations
