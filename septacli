@@ -167,7 +167,7 @@ function formatTrainsMarkdown(trains) {
     const late = t.late || 0;
     const status = late > 0 ? `${late} min late` : 'On time';
     const gps = (t.lat && t.lon) ? `${t.lat},${t.lon}` : '-';
-    const heading = t.heading ? `${parseFloat(t.heading).toFixed(1)}°` : '-';
+    const heading = t.heading ? `${parseFloat(t.heading).toFixed(1)}deg` : '-';
     md += `| ${t.trainno || '-'} | ${t.line || '-'} | ${t.SOURCE || '-'} | ${t.dest || '-'} | ${t.currentstop || '-'} | ${t.nextstop || '-'} | ${t.service || '-'} | ${t.TRACK || '-'} | ${gps} | ${heading} | ${t.consist || '-'} | ${status} |\n`;
   }
 

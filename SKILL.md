@@ -172,7 +172,7 @@ Full list available at: https://www3.septa.org/VIRegionalRail.html
 # Active Regional Rail Trains
 | Train | Line | Origin | Destination | Current | Next Stop | Service | Track | GPS | Heading | Consist | Status |
 |-------|------|--------|-------------|---------|-----------|---------|-------|-----|---------|---------|--------|
-| 1711 | Trenton | Market East | Trenton | Jefferson Station | Market East | LOCAL | 3 | 39.9538889,-75.1677778 | 120.1° | - | 20 min late |
+| 1711 | Trenton | Market East | Trenton | Jefferson Station | Market East | LOCAL | 3 | 39.9538889,-75.1677778 | 120.1deg | - | 20 min late |
 ```
 
 ### Example 4: Get schedule for specific train
